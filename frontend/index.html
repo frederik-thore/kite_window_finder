@@ -1,0 +1,878 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kite Window Finder</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <style>
+    :root {
+      --bg: #f5f7fa;
+      --surface: #ffffff;
+      --ink: #0f172a;
+      --muted: #475569;
+      --accent: #0ea5e9;
+      --warn: #ef4444;
+      --good: #10b981;
+      --line: #e2e8f0;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "SF Pro Text", "Segoe UI", "Helvetica Neue", sans-serif;
+      background: radial-gradient(circle at 20% 0%, #e2f3ff 0, var(--bg) 45%);
+      color: var(--ink);
+    }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .head { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    h1 { font-size: 24px; margin: 0; }
+    .sub { color: var(--muted); margin-top: 4px; font-size: 14px; }
+    .grid {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      grid-template-areas:
+        "explore hours"
+        "explore chart";
+      align-items: start;
+      gap: 14px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px;
+      box-shadow: 0 6px 20px rgb(15 23 42 / 4%);
+    }
+    .card-explore { grid-area: explore; }
+    .card-hours { grid-area: hours; }
+    .card-chart { grid-area: chart; }
+    .mobile-summary,
+    .mobile-tabs {
+      display: none;
+    }
+    .mobile-summary {
+      margin-top: 14px;
+      padding: 12px 14px;
+      position: sticky;
+      top: 8px;
+      z-index: 30;
+      background: rgb(255 255 255 / 92%);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgb(15 23 42 / 8%);
+    }
+    .mobile-summary-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    .mobile-summary-main {
+      margin-top: 6px;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: baseline;
+    }
+    .mobile-summary-title {
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .mobile-summary-meta {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .mobile-tabs {
+      margin-top: 10px;
+      gap: 8px;
+      overflow: auto;
+      padding-bottom: 2px;
+    }
+    .mobile-tab {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 10px 14px;
+      font-size: 14px;
+      color: var(--muted);
+      background: #fff;
+      white-space: nowrap;
+    }
+    .mobile-tab.active {
+      background: #e0f2fe;
+      color: #0f172a;
+      border-color: #7dd3fc;
+      font-weight: 700;
+    }
+    .map {
+      position: relative;
+      height: 360px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      overflow: hidden;
+    }
+    .map .leaflet-container {
+      width: 100%;
+      height: 100%;
+      border-radius: 12px;
+    }
+    .leaflet-popup-content {
+      margin: 10px 12px;
+      font-size: 13px;
+    }
+    .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    select, input, button {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 14px;
+      background: #fff;
+    }
+    button {
+      background: var(--accent);
+      border: none;
+      color: #fff;
+      cursor: pointer;
+    }
+    .stats { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+    .pill {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 13px;
+      color: var(--muted);
+      background: #fff;
+    }
+    .pill-clickable {
+      cursor: pointer;
+      user-select: none;
+    }
+    .pill-active {
+      border-color: #7dd3fc;
+      background: #e0f2fe;
+      color: #0f172a;
+      font-weight: 600;
+    }
+    .spot-photo {
+      margin-top: 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      background: #fff;
+    }
+    .spot-photo img {
+      width: 100%;
+      aspect-ratio: 3 / 2;
+      height: auto;
+      object-fit: contain;
+      display: block;
+      background: linear-gradient(180deg, #dbeafe, #e2e8f0);
+    }
+    .spot-photo-meta {
+      border-top: 1px solid var(--line);
+      padding: 10px 12px;
+      color: var(--muted);
+      font-size: 13px;
+      background: #fbfdff;
+    }
+    .timeline {
+      max-height: 470px;
+      overflow: auto;
+      display: grid;
+      gap: 8px;
+    }
+    .slot {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      display: grid;
+      grid-template-columns: 90px 1fr;
+      gap: 8px;
+      cursor: pointer;
+    }
+    .slot-active {
+      border-color: #7dd3fc;
+      background: #f0f9ff;
+    }
+    .stars { color: #f59e0b; font-size: 16px; letter-spacing: 1px; }
+    .meta { color: var(--muted); font-size: 13px; }
+    .detail {
+      margin-top: 10px;
+      border-top: 1px solid var(--line);
+      padding-top: 10px;
+      font-size: 14px;
+    }
+    .chart-wrap {
+      margin-top: 12px;
+      border-top: 1px solid var(--line);
+      padding-top: 10px;
+    }
+    .plot-panel {
+      position: relative;
+    }
+    .chart-head {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .legend-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 6px;
+      vertical-align: -1px;
+    }
+    .plot {
+      width: 100%;
+      height: 240px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fbfdff;
+      display: block;
+    }
+    .plot-tooltip {
+      position: absolute;
+      pointer-events: none;
+      background: #0f172a;
+      color: #fff;
+      font-size: 12px;
+      line-height: 1.35;
+      border-radius: 8px;
+      padding: 8px 10px;
+      box-shadow: 0 8px 20px rgb(2 6 23 / 22%);
+      display: none;
+      z-index: 5;
+      max-width: 220px;
+      transform: translate(-50%, calc(-100% - 12px));
+    }
+    .warn { color: var(--warn); font-weight: 600; }
+    @media (max-width: 980px) {
+      .wrap {
+        padding: 14px;
+      }
+      .grid {
+        display: block;
+      }
+      .mobile-summary,
+      .mobile-tabs {
+        display: flex;
+      }
+      .mobile-summary {
+        display: block;
+      }
+      .card[data-mobile-panel] {
+        display: none;
+      }
+      .card[data-mobile-panel].mobile-visible {
+        display: block;
+      }
+      .card {
+        border-radius: 18px;
+        padding: 12px;
+      }
+      .controls {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+      select, input, button {
+        min-height: 46px;
+        font-size: 16px;
+      }
+      .map {
+        height: 220px;
+      }
+      .timeline {
+        max-height: none;
+      }
+      .slot {
+        grid-template-columns: 72px 1fr;
+        gap: 10px;
+      }
+      .slot .stars {
+        font-size: 15px;
+      }
+      .plot {
+        height: 220px;
+      }
+      .chart-head {
+        gap: 8px;
+        font-size: 11px;
+      }
+    }
+    @media (max-width: 640px) {
+      h1 {
+        font-size: 22px;
+      }
+      .sub {
+        font-size: 13px;
+      }
+      .spot-photo img {
+        aspect-ratio: 4 / 3;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="head">
+      <div>
+        <h1>Kite Window Finder</h1>
+        <div class="sub">Spot, Tag und stündliche 0-5 Sterne Bewertung</div>
+      </div>
+    </div>
+    <div class="mobile-summary" id="mobileSummary">
+      <div class="mobile-summary-label">Tagesfenster</div>
+      <div class="mobile-summary-main">
+        <div class="mobile-summary-title" id="mobileSummaryTitle">Keine Daten</div>
+        <div class="stars" id="mobileSummaryStars"></div>
+      </div>
+      <div class="mobile-summary-meta" id="mobileSummaryMeta">Waehle Spot und Tag.</div>
+    </div>
+    <div class="mobile-tabs" id="mobileTabs">
+      <button class="mobile-tab active" data-panel="explore">Uebersicht</button>
+      <button class="mobile-tab" data-panel="hours">Zeiten</button>
+      <button class="mobile-tab" data-panel="chart">Plot</button>
+    </div>
+    <div class="grid">
+      <section class="card card-explore mobile-visible" data-mobile-panel="explore">
+        <div class="map" id="map"></div>
+        <div class="controls">
+          <select id="spotSelect"></select>
+          <input id="dayInput" type="date" />
+          <button id="loadBtn">Load</button>
+        </div>
+        <div class="stats" id="skillStats"></div>
+        <div class="spot-photo">
+          <img id="spotImage" alt="Spot image" />
+          <div class="spot-photo-meta" id="spotImageMeta">Spot image</div>
+        </div>
+      </section>
+      <section class="card card-hours" data-mobile-panel="hours">
+        <div class="timeline" id="timeline"></div>
+      </section>
+      <section class="card card-chart" data-mobile-panel="chart">
+        <div class="chart-wrap" style="margin-top:0;border-top:none;padding-top:0;">
+          <div class="chart-head">
+            <span><i class="legend-dot" style="background:#0284c7"></i>Wind (kn)</span>
+            <span><i class="legend-dot" style="background:#f97316"></i>Lufttemp (°C)</span>
+            <span><i class="legend-dot" style="background:#10b981"></i>Tide (m)</span>
+            <span><i class="legend-dot" style="background:#eab308"></i>Sterne (0-5)</span>
+          </div>
+          <div class="plot-panel">
+            <canvas class="plot" id="spotPlot" width="560" height="240"></canvas>
+            <div class="plot-tooltip" id="plotTooltip"></div>
+          </div>
+        </div>
+        <div class="detail" id="detail">Waehle einen Zeitslot fuer Details.</div>
+      </section>
+    </div>
+  </div>
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script src="./config.js"></script>
+  <script>
+    const mapEl = document.getElementById("map");
+    const spotSelect = document.getElementById("spotSelect");
+    const dayInput = document.getElementById("dayInput");
+    const timelineEl = document.getElementById("timeline");
+    const spotPlot = document.getElementById("spotPlot");
+    const plotTooltip = document.getElementById("plotTooltip");
+    const detailEl = document.getElementById("detail");
+    const skillStats = document.getElementById("skillStats");
+    const spotImageEl = document.getElementById("spotImage");
+    const spotImageMetaEl = document.getElementById("spotImageMeta");
+    const mobileSummaryTitleEl = document.getElementById("mobileSummaryTitle");
+    const mobileSummaryStarsEl = document.getElementById("mobileSummaryStars");
+    const mobileSummaryMetaEl = document.getElementById("mobileSummaryMeta");
+    const mobileTabsEl = document.getElementById("mobileTabs");
+
+    let spots = [];
+    let currentPoints = [];
+    let selectedPlotIndex = null;
+    let map = null;
+    const markersBySpotId = new Map();
+    let activeSpotId = null;
+    let selectedModel = "gfs";
+    let activeMobilePanel = "explore";
+    const API_BASE_URL = (window.APP_CONFIG?.API_BASE_URL || "").replace(/\/$/, "");
+
+    function apiUrl(path) {
+      return API_BASE_URL ? `${API_BASE_URL}${path}` : path;
+    }
+
+    function currentSpot() {
+      return spots.find((entry) => entry.id === spotSelect.value) || null;
+    }
+
+    function spotTimeZone() {
+      return currentSpot()?.timezone || "UTC";
+    }
+
+    function formatSpotHour(timestamp) {
+      return new Intl.DateTimeFormat("de-DE", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+        timeZone: spotTimeZone(),
+      }).format(new Date(timestamp));
+    }
+
+    function formatSpotDateTime(timestamp) {
+      return new Intl.DateTimeFormat("de-DE", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+        timeZone: spotTimeZone(),
+      }).format(new Date(timestamp));
+    }
+
+    function currentSpotDateValue() {
+      const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: spotTimeZone(),
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).formatToParts(new Date());
+      const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+      return `${byType.year}-${byType.month}-${byType.day}`;
+    }
+
+    function starString(stars) {
+      const full = Math.floor(stars);
+      const half = stars - full >= 0.5 ? "½" : "";
+      return "★".repeat(full) + half;
+    }
+
+    function isMobileLayout() {
+      return window.matchMedia("(max-width: 980px)").matches;
+    }
+
+    function applyMobilePanelState() {
+      document.querySelectorAll("[data-mobile-panel]").forEach((panel) => {
+        panel.classList.toggle("mobile-visible", !isMobileLayout() || panel.dataset.mobilePanel === activeMobilePanel);
+      });
+      mobileTabsEl.querySelectorAll(".mobile-tab").forEach((tab) => {
+        tab.classList.toggle("active", tab.dataset.panel === activeMobilePanel);
+      });
+      if (map) {
+        setTimeout(() => map.invalidateSize(), 120);
+      }
+    }
+
+    function updateSummary(points) {
+      if (!points.length) {
+        mobileSummaryTitleEl.textContent = "Keine Daten";
+        mobileSummaryStarsEl.textContent = "";
+        mobileSummaryMetaEl.textContent = "Waehle Spot und Tag.";
+        return;
+      }
+      const best = [...points].sort((a, b) => b.stars - a.stars || b.explanation.weighted_score - a.explanation.weighted_score)[0];
+      mobileSummaryTitleEl.textContent = `${formatSpotHour(best.timestamp)} beste Session`;
+      mobileSummaryStarsEl.textContent = starString(best.stars);
+      mobileSummaryMetaEl.textContent =
+        `${best.forecast.wind_speed_kn} kn @ ${best.forecast.wind_direction_deg}°, Tide ${best.forecast.tide_level_m}m, ${selectedModel.toUpperCase()}`;
+    }
+
+    function setSpotImage(spot) {
+      const stamp = "20260307";
+      const candidates = [
+        `/app/spot-images/${spot.id}.jpg?v=${stamp}`,
+        `/spot-images/${spot.id}.jpg?v=${stamp}`,
+        `spot-images/${spot.id}.jpg?v=${stamp}`,
+        `/app/spot-images/board.jpg?v=${stamp}`,
+      ];
+      let idx = 0;
+      spotImageEl.onerror = () => {
+        idx += 1;
+        if (idx < candidates.length) {
+          spotImageEl.src = candidates[idx];
+        }
+      };
+      spotImageEl.src = candidates[idx];
+      spotImageMetaEl.textContent = `${spot.country} | ${spot.name}`;
+    }
+
+    function initMap() {
+      map = L.map("map", {
+        zoomControl: true,
+        worldCopyJump: true,
+      }).setView([20, 0], 2);
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+        maxZoom: 18,
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; CARTO',
+      }).addTo(map);
+    }
+
+    function focusSpot(spot) {
+      if (!map) return;
+      if (activeSpotId && markersBySpotId.has(activeSpotId)) {
+        const oldMarker = markersBySpotId.get(activeSpotId);
+        oldMarker.setStyle({
+          radius: 6,
+          color: "#ffffff",
+          weight: 2,
+          fillColor: "#0ea5e9",
+          fillOpacity: 0.95,
+        });
+      }
+      const marker = markersBySpotId.get(spot.id);
+      if (marker) {
+        marker.setStyle({
+          radius: 8,
+          color: "#ffffff",
+          weight: 2,
+          fillColor: "#f59e0b",
+          fillOpacity: 1,
+        });
+        marker.openPopup();
+      }
+      activeSpotId = spot.id;
+      setSpotImage(spot);
+      map.flyTo([spot.lat, spot.lon], 6, { duration: 0.8 });
+    }
+
+    async function loadSpots() {
+      const res = await fetch(apiUrl("/spots"));
+      spots = await res.json();
+      spotSelect.innerHTML = "";
+      markersBySpotId.clear();
+      spots.forEach((spot) => {
+        const option = document.createElement("option");
+        option.value = spot.id;
+        option.textContent = `${spot.country} | ${spot.name}`;
+        spotSelect.appendChild(option);
+
+        const marker = L.circleMarker([spot.lat, spot.lon], {
+          radius: 6,
+          color: "#ffffff",
+          weight: 2,
+          fillColor: "#0ea5e9",
+          fillOpacity: 0.95,
+        }).addTo(map);
+        marker.bindPopup(`<strong>${spot.country}</strong><br/>${spot.name}`);
+        marker.on("click", () => {
+          spotSelect.value = spot.id;
+          loadDay();
+        });
+        markersBySpotId.set(spot.id, marker);
+      });
+      const defaultSpotId = "egypt-seahorse-bay";
+      if (spots.some((spot) => spot.id === defaultSpotId)) {
+        spotSelect.value = defaultSpotId;
+        const defaultSpot = spots.find((spot) => spot.id === defaultSpotId);
+        if (defaultSpot) {
+          focusSpot(defaultSpot);
+          dayInput.value = currentSpotDateValue();
+        }
+      }
+      spotSelect.onchange = () => {
+        const spot = spots.find((entry) => entry.id === spotSelect.value);
+        if (spot) {
+          focusSpot(spot);
+          dayInput.value = currentSpotDateValue();
+        }
+      };
+    }
+
+    async function loadSkill() {
+      const spotId = spotSelect.value;
+      const res = await fetch(apiUrl(`/spots/${spotId}/model-skill?window=30d`));
+      if (!res.ok) {
+        skillStats.innerHTML = "";
+        const warn = document.createElement("span");
+        warn.className = "pill warn";
+        warn.textContent = "Model skills unavailable";
+        skillStats.appendChild(warn);
+        return;
+      }
+      const data = await res.json();
+      skillStats.innerHTML = "";
+      if (!data.entries.some((entry) => entry.model === selectedModel)) {
+        selectedModel = data.active_model;
+      }
+      const active = document.createElement("span");
+      active.className = "pill";
+      active.textContent = `Active model: ${data.active_model.toUpperCase()}`;
+      skillStats.appendChild(active);
+      data.entries.forEach((entry) => {
+        const pill = document.createElement("button");
+        pill.className = `pill pill-clickable ${selectedModel === entry.model ? "pill-active" : ""}`;
+        pill.textContent = `${entry.model.toUpperCase()} skill ${entry.model_skill}`;
+        pill.onclick = async () => {
+          selectedModel = entry.model;
+          await loadDay();
+        };
+        skillStats.appendChild(pill);
+      });
+    }
+
+    function drawTimeline(points) {
+      currentPoints = points;
+      timelineEl.innerHTML = "";
+      updateSummary(points);
+      points.forEach((point, idx) => {
+        const slot = document.createElement("div");
+        slot.className = "slot";
+        slot.dataset.idx = String(idx);
+        const gate = point.explanation.hard_gates_triggered.length
+          ? `<span class="warn">${point.explanation.hard_gates_triggered.join(", ")}</span>`
+          : `Score ${point.explanation.weighted_score}`;
+        slot.innerHTML = `
+          <div><strong>${formatSpotHour(point.timestamp)}</strong><div class="stars">${starString(point.stars)}</div></div>
+          <div class="meta">
+            ${point.forecast.wind_speed_kn} kn @ ${point.forecast.wind_direction_deg}° | Tide ${point.forecast.tide_level_m}m<br/>
+            Air ${point.forecast.air_temp_c}°C / Water ${point.forecast.water_temp_c}°C | ${point.neoprene_recommendation}<br/>
+            ${gate}
+          </div>
+        `;
+        slot.onclick = () => {
+          showDetail(idx, { scroll: false });
+          if (isMobileLayout()) {
+            activeMobilePanel = "chart";
+            applyMobilePanelState();
+          }
+        };
+        timelineEl.appendChild(slot);
+      });
+      drawSpotPlot(points);
+      if (points.length > 0) {
+        if (selectedPlotIndex === null || selectedPlotIndex >= points.length) {
+          selectedPlotIndex = Math.min(12, points.length - 1);
+        }
+        showDetail(selectedPlotIndex, { scroll: false });
+      }
+    }
+
+    function valueToY(value, min, max, pad, height) {
+      const t = (value - min) / Math.max(0.0001, max - min);
+      return height - pad - t * (height - 2 * pad);
+    }
+
+    function indexToX(index, count, pad, width) {
+      return pad + (index / Math.max(1, count - 1)) * (width - 2 * pad);
+    }
+
+    function drawLine(ctx, values, color, min, max, pad, w, h) {
+      if (!values.length) return;
+      ctx.beginPath();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      values.forEach((value, i) => {
+        const x = indexToX(i, values.length, pad, w);
+        const y = valueToY(value, min, max, pad, h);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    }
+
+    function drawSpotPlot(points) {
+      const ctx = spotPlot.getContext("2d");
+      const w = spotPlot.width;
+      const h = spotPlot.height;
+      const pad = 34;
+      ctx.clearRect(0, 0, w, h);
+
+      ctx.strokeStyle = "#dbe4ef";
+      ctx.lineWidth = 1;
+      ctx.fillStyle = "#475569";
+      ctx.font = "11px SF Pro Text, Segoe UI, sans-serif";
+      for (let i = 0; i <= 4; i++) {
+        const y = pad + (i / 4) * (h - 2 * pad);
+        ctx.beginPath();
+        ctx.moveTo(pad, y);
+        ctx.lineTo(w - pad, y);
+        ctx.stroke();
+
+        const windTick = Math.round((1 - i / 4) * 40);
+        const starTick = ((1 - i / 4) * 5).toFixed(1);
+        ctx.fillStyle = "#0284c7";
+        ctx.fillText(String(windTick), 6, y + 4);
+        ctx.fillStyle = "#eab308";
+        ctx.fillText(String(starTick), w - 22, y + 4);
+      }
+      ctx.fillStyle = "#0284c7";
+      ctx.fillText("Wind", 6, 14);
+      ctx.fillStyle = "#eab308";
+      ctx.fillText("Sterne", w - 42, 14);
+
+      if (!points.length) return;
+      const wind = points.map((p) => p.forecast.wind_speed_kn);
+      const temp = points.map((p) => p.forecast.air_temp_c);
+      const tide = points.map((p) => p.forecast.tide_level_m);
+      const stars = points.map((p) => p.stars);
+
+      drawLine(ctx, wind, "#0284c7", 0, 40, pad, w, h);
+      drawLine(ctx, temp, "#f97316", 0, 40, pad, w, h);
+      drawLine(ctx, tide, "#10b981", -2, 2, pad, w, h);
+      drawLine(ctx, stars, "#eab308", 0, 5, pad, w, h);
+
+      if (selectedPlotIndex !== null && selectedPlotIndex < points.length) {
+        const x = indexToX(selectedPlotIndex, points.length, pad, w);
+        ctx.save();
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = "#64748b";
+        ctx.beginPath();
+        ctx.moveTo(x, pad);
+        ctx.lineTo(x, h - pad);
+        ctx.stroke();
+        ctx.restore();
+
+        const selected = points[selectedPlotIndex];
+        const dots = [
+          { value: selected.forecast.wind_speed_kn, min: 0, max: 40, color: "#0284c7" },
+          { value: selected.forecast.air_temp_c, min: 0, max: 40, color: "#f97316" },
+          { value: selected.forecast.tide_level_m, min: -2, max: 2, color: "#10b981" },
+          { value: selected.stars, min: 0, max: 5, color: "#eab308" },
+        ];
+        dots.forEach((dot) => {
+          const y = valueToY(dot.value, dot.min, dot.max, pad, h);
+          ctx.beginPath();
+          ctx.fillStyle = "#ffffff";
+          ctx.strokeStyle = dot.color;
+          ctx.lineWidth = 2;
+          ctx.arc(x, y, 4, 0, 2 * Math.PI);
+          ctx.fill();
+          ctx.stroke();
+        });
+      }
+
+      ctx.fillStyle = "#64748b";
+      ctx.font = "11px SF Pro Text, Segoe UI, sans-serif";
+      if (points.length) {
+        ctx.fillText(formatSpotHour(points[0].timestamp), pad - 8, h - 8);
+        ctx.fillText(
+          formatSpotHour(points[Math.floor((points.length - 1) / 2)].timestamp),
+          w / 2 - 14,
+          h - 8
+        );
+        ctx.fillText(formatSpotHour(points[points.length - 1].timestamp), w - pad - 18, h - 8);
+      }
+    }
+
+    function nearestPlotIndex(event) {
+      const rect = spotPlot.getBoundingClientRect();
+      const w = spotPlot.width;
+      const pad = 34;
+      const x = (event.clientX - rect.left) * (w / rect.width);
+      const clamped = Math.max(pad, Math.min(w - pad, x));
+      const ratio = (clamped - pad) / Math.max(0.0001, (w - 2 * pad));
+      return Math.round(ratio * Math.max(0, currentPoints.length - 1));
+    }
+
+    function updatePlotTooltip(event) {
+      if (!currentPoints.length) return;
+      const idx = nearestPlotIndex(event);
+      const point = currentPoints[idx];
+      if (!point) return;
+      const rect = spotPlot.getBoundingClientRect();
+      const left = event.clientX - rect.left;
+      const top = event.clientY - rect.top;
+      plotTooltip.innerHTML =
+        `<strong>${formatSpotHour(point.timestamp)}</strong><br/>` +
+        `Wind ${point.forecast.wind_speed_kn} kn<br/>` +
+        `Luft ${point.forecast.air_temp_c}°C<br/>` +
+        `Tide ${point.forecast.tide_level_m} m<br/>` +
+        `Sterne ${point.stars}`;
+      plotTooltip.style.left = `${left}px`;
+      plotTooltip.style.top = `${top}px`;
+      plotTooltip.style.display = "block";
+    }
+
+    function hidePlotTooltip() {
+      plotTooltip.style.display = "none";
+    }
+
+    function showDetail(index, opts = { scroll: true }) {
+      const point = currentPoints[index];
+      if (!point) return;
+      selectedPlotIndex = index;
+      drawSpotPlot(currentPoints);
+      timelineEl.querySelectorAll(".slot").forEach((el) => el.classList.remove("slot-active"));
+      const activeSlot = timelineEl.querySelector(`.slot[data-idx="${index}"]`);
+      if (activeSlot) {
+        activeSlot.classList.add("slot-active");
+        if (opts.scroll) {
+          activeSlot.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        }
+      }
+      const observationLine = point.observation
+        ? `Observation: ${point.observation.wind_speed_kn} kn @ ${point.observation.wind_direction_deg}°<br/>`
+        : `Observation: noch keine Messdaten verfuegbar<br/>`;
+      detailEl.innerHTML = `
+        <strong>${formatSpotDateTime(point.timestamp)} (${spotTimeZone()})</strong><br/>
+        Forecast: ${point.forecast.wind_speed_kn} kn @ ${point.forecast.wind_direction_deg}°,
+        Tide ${point.forecast.tide_level_m}m, Rain ${point.forecast.precipitation_mm}mm, Cloud ${point.forecast.cloud_cover_pct}%<br/>
+        ${observationLine}
+        Components: ${Object.entries(point.explanation.components).map(([k,v]) => `${k}=${v}`).join(", ")}
+      `;
+    }
+
+    async function loadDay() {
+      const spotId = spotSelect.value;
+      const day = dayInput.value;
+      const spot = spots.find((entry) => entry.id === spotId);
+      if (spot) focusSpot(spot);
+      await loadSkill().catch(() => {
+        skillStats.innerHTML = "";
+      });
+      const modelParam = selectedModel ? `&model=${selectedModel}` : "";
+      const res = await fetch(apiUrl(`/spots/${spotId}/rating?day=${day}${modelParam}`));
+      if (!res.ok) {
+        const body = await res.json();
+        detailEl.innerHTML = `<span class="warn">${body.error?.message || body.detail || "Data unavailable"}</span>`;
+        timelineEl.innerHTML = "";
+        updateSummary([]);
+        drawSpotPlot([]);
+        return;
+      }
+      const data = await res.json();
+      drawTimeline(data.points);
+    }
+
+    spotPlot.addEventListener("mousemove", updatePlotTooltip);
+    spotPlot.addEventListener("mouseleave", hidePlotTooltip);
+    spotPlot.addEventListener("click", (event) => {
+      const idx = nearestPlotIndex(event);
+      showDetail(idx, { scroll: true });
+    });
+
+    document.getElementById("loadBtn").onclick = loadDay;
+    mobileTabsEl.querySelectorAll(".mobile-tab").forEach((tab) => {
+      tab.onclick = () => {
+        activeMobilePanel = tab.dataset.panel;
+        applyMobilePanelState();
+      };
+    });
+    window.addEventListener("resize", applyMobilePanelState);
+
+    const today = new Date().toISOString().slice(0, 10);
+    const minDate = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+    const maxDate = new Date(Date.now() + 3 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+    dayInput.min = minDate;
+    dayInput.max = maxDate;
+    dayInput.value = today;
+    initMap();
+    applyMobilePanelState();
+    loadSpots().then(loadDay);
+  </script>
+</body>
+</html>

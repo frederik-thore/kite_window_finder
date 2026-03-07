@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: kite-window-finder-api
+    env: python
+    plan: free
+    buildCommand: pip install .
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: LIVE_WEATHER_ENABLED
+        value: "true"
+      - key: ALLOW_SYNTHETIC_FALLBACK
+        value: "false"
+      - key: CORS_ALLOW_ORIGINS
+        sync: false
