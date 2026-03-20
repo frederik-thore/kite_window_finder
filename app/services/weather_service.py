@@ -41,37 +41,49 @@ def _angle_error(a: int, b: int) -> float:
 
 
 def hourly_observations(spot: Spot, dt_from: datetime, dt_to: datetime) -> list[ObservationPoint]:
+    last_error: Exception | None = None
     if LIVE_WEATHER_ENABLED:
         if _live_observation_meteostat:
             try:
                 points = list(_live_observation_meteostat.hourly_observations(spot, dt_from, dt_to))
                 if points:
                     return points
-            except Exception:
-                pass
+            except Exception as exc:
+                last_error = exc
         try:
             points = list(_live_observation_archive.hourly_observations(spot, dt_from, dt_to))
             if points:
                 return points
-        except Exception:
-            pass
+        except Exception as exc:
+            last_error = exc
     if ALLOW_SYNTHETIC_FALLBACK:
         return list(_fallback_observation.hourly_observations(spot, dt_from, dt_to))
+    if last_error is not None:
+        raise RuntimeError(
+            "Live observation data unavailable and synthetic fallback is disabled. "
+            f"Last provider error: {last_error.__class__.__name__}: {last_error}"
+        )
     raise RuntimeError("Live observation data unavailable and synthetic fallback is disabled.")
 
 
 def hourly_forecast(
     spot: Spot, dt_from: datetime, dt_to: datetime, model: ForecastModelName
 ) -> list[ForecastPoint]:
+    last_error: Exception | None = None
     if LIVE_WEATHER_ENABLED:
         try:
             points = list(_live_forecast.hourly_forecast(spot, dt_from, dt_to, model))
             if points:
                 return points
-        except Exception:
-            pass
+        except Exception as exc:
+            last_error = exc
     if ALLOW_SYNTHETIC_FALLBACK:
         return list(_fallback_forecast.hourly_forecast(spot, dt_from, dt_to, model))
+    if last_error is not None:
+        raise RuntimeError(
+            "Live forecast data unavailable and synthetic fallback is disabled. "
+            f"Model={model}. Last provider error: {last_error.__class__.__name__}: {last_error}"
+        )
     raise RuntimeError("Live forecast data unavailable and synthetic fallback is disabled.")
 
 
@@ -95,10 +107,12 @@ def model_skill(spot: Spot, window_days: int = 30) -> ModelSkillResponse:
         observations_unavailable = True
 
     entries: list[ModelSkillEntry] = []
+    model_errors: list[str] = []
     for model in MODELS:
         try:
             forecast = hourly_forecast(spot, start, end, model)
-        except RuntimeError:
+        except RuntimeError as exc:
+            model_errors.append(f"{model}: {exc}")
             # Some providers do not expose historical model output for long lookback windows.
             # Probe short-term forecast availability so model switching in UI still works.
             try:
@@ -115,8 +129,8 @@ def model_skill(spot: Spot, window_days: int = 30) -> ModelSkillResponse:
                             model_skill=0.5,
                         )
                     )
-            except RuntimeError:
-                pass
+            except RuntimeError as probe_exc:
+                model_errors.append(f"{model} probe: {probe_exc}")
             continue
         if observations_unavailable:
             entries.append(
@@ -160,6 +174,11 @@ def model_skill(spot: Spot, window_days: int = 30) -> ModelSkillResponse:
         )
     entries.sort(key=lambda item: item.model_skill, reverse=True)
     if not entries:
+        details = " | ".join(model_errors[:6])
+        if details:
+            raise RuntimeError(
+                "No live forecast models available for model correlation. " f"Details: {details}"
+            )
         raise RuntimeError("No live forecast models available for model correlation.")
     if observations_unavailable and any(item.model == "gfs" for item in entries):
         active = "gfs"
