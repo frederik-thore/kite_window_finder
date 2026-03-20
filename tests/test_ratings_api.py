@@ -3,6 +3,8 @@ from datetime import UTC, datetime, timedelta
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.models.weather import ForecastPoint
+from app.services import weather_service
 
 
 def test_rating_endpoint_returns_24_hour_points() -> None:
@@ -29,6 +31,43 @@ def test_timeseries_endpoint_returns_default_window() -> None:
 def test_model_skill_endpoint_returns_active_model() -> None:
     client = TestClient(app)
     response = client.get("/spots/egypt-el-gouna/model-skill", params={"window": "30d"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["active_model"] in {"ecmwf", "gfs", "icon"}
+    assert len(payload["entries"]) == 3
+
+
+def test_model_skill_falls_back_to_availability_probe_when_history_missing(monkeypatch) -> None:
+    client = TestClient(app)
+
+    def _fake_obs(*args, **kwargs):
+        raise RuntimeError("observations unavailable")
+
+    def _fake_forecast(spot, dt_from, dt_to, model):
+        now = datetime.now(tz=UTC).replace(minute=0, second=0, microsecond=0)
+        if dt_to <= now:
+            raise RuntimeError("historical model data unavailable")
+        return [
+            ForecastPoint(
+                timestamp=now + timedelta(hours=1),
+                model=model,
+                wind_speed_kn=18.0,
+                wind_direction_deg=300,
+                tide_level_m=0.1,
+                air_temp_c=25.0,
+                water_temp_c=22.0,
+                shortwave_radiation_wm2=500.0,
+                cloud_cover_pct=20,
+                precipitation_mm=0.0,
+                is_daylight=True,
+            )
+        ]
+
+    monkeypatch.setattr(weather_service, "hourly_observations", _fake_obs)
+    monkeypatch.setattr(weather_service, "hourly_forecast", _fake_forecast)
+
+    response = client.get("/spots/egypt-seahorse-bay/model-skill", params={"window": "30d"})
 
     assert response.status_code == 200
     payload = response.json()

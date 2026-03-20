@@ -99,6 +99,24 @@ def model_skill(spot: Spot, window_days: int = 30) -> ModelSkillResponse:
         try:
             forecast = hourly_forecast(spot, start, end, model)
         except RuntimeError:
+            # Some providers do not expose historical model output for long lookback windows.
+            # Probe short-term forecast availability so model switching in UI still works.
+            try:
+                probe_start = end
+                probe_end = end + timedelta(days=3)
+                probe_points = hourly_forecast(spot, probe_start, probe_end, model)
+                if probe_points:
+                    entries.append(
+                        ModelSkillEntry(
+                            model=model,
+                            mae_wind_kn=0.0,
+                            mae_dir_deg=0.0,
+                            kiteable_hit_rate=0.0,
+                            model_skill=0.5,
+                        )
+                    )
+            except RuntimeError:
+                pass
             continue
         if observations_unavailable:
             entries.append(
