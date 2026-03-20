@@ -84,13 +84,32 @@ def model_skill(spot: Spot, window_days: int = 30) -> ModelSkillResponse:
 
     end = now.replace(minute=0, second=0, microsecond=0)
     start = end - timedelta(days=window_days)
-    obs = hourly_observations(spot, start, end)
+    observations_unavailable = False
+    try:
+        obs = hourly_observations(spot, start, end)
+    except RuntimeError:
+        obs = []
+        observations_unavailable = True
     by_time = {item.timestamp: item for item in obs}
+    if not by_time:
+        observations_unavailable = True
+
     entries: list[ModelSkillEntry] = []
     for model in MODELS:
         try:
             forecast = hourly_forecast(spot, start, end, model)
         except RuntimeError:
+            continue
+        if observations_unavailable:
+            entries.append(
+                ModelSkillEntry(
+                    model=model,
+                    mae_wind_kn=0.0,
+                    mae_dir_deg=0.0,
+                    kiteable_hit_rate=0.0,
+                    model_skill=0.5,
+                )
+            )
             continue
         pairs = [(point, by_time.get(point.timestamp)) for point in forecast]
         valid_pairs = [(point, observed) for point, observed in pairs if observed is not None]
@@ -124,7 +143,10 @@ def model_skill(spot: Spot, window_days: int = 30) -> ModelSkillResponse:
     entries.sort(key=lambda item: item.model_skill, reverse=True)
     if not entries:
         raise RuntimeError("No live forecast models available for model correlation.")
-    active = entries[0].model if entries else "ecmwf"
+    if observations_unavailable and any(item.model == "gfs" for item in entries):
+        active = "gfs"
+    else:
+        active = entries[0].model if entries else "ecmwf"
     response = ModelSkillResponse(
         spot_id=spot.id,
         window_days=window_days,

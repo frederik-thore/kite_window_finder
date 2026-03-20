@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi.testclient import TestClient
 
@@ -7,7 +7,8 @@ from app.main import app
 
 def test_rating_endpoint_returns_24_hour_points() -> None:
     client = TestClient(app)
-    response = client.get("/spots/egypt-el-gouna/rating", params={"day": "2026-03-05"})
+    day = (datetime.now(tz=UTC) - timedelta(days=1)).date().isoformat()
+    response = client.get("/spots/egypt-el-gouna/rating", params={"day": day})
 
     assert response.status_code == 200
     payload = response.json()
@@ -37,9 +38,10 @@ def test_model_skill_endpoint_returns_active_model() -> None:
 
 def test_rating_endpoint_can_force_specific_model() -> None:
     client = TestClient(app)
+    day = (datetime.now(tz=UTC) - timedelta(days=1)).date().isoformat()
     response = client.get(
         "/spots/egypt-el-gouna/rating",
-        params={"day": "2026-03-05", "model": "gfs"},
+        params={"day": day, "model": "gfs"},
     )
 
     assert response.status_code == 200
@@ -49,9 +51,10 @@ def test_rating_endpoint_can_force_specific_model() -> None:
 
 def test_future_rating_works_without_observations() -> None:
     client = TestClient(app)
+    day = (datetime.now(tz=UTC) + timedelta(days=1)).date().isoformat()
     response = client.get(
         "/spots/egypt-seahorse-bay/rating",
-        params={"day": "2026-03-08", "model": "gfs"},
+        params={"day": day, "model": "gfs"},
     )
 
     assert response.status_code == 200
@@ -77,7 +80,9 @@ def test_adjustments_roundtrip() -> None:
 
 def test_explain_endpoint_for_known_hour() -> None:
     client = TestClient(app)
-    ts = datetime(2026, 3, 5, 12, 0, tzinfo=UTC).isoformat()
+    ts = (datetime.now(tz=UTC) - timedelta(days=1)).replace(
+        hour=12, minute=0, second=0, microsecond=0
+    ).isoformat()
     response = client.get("/spots/egypt-el-gouna/explain", params={"timestamp": ts})
 
     assert response.status_code == 200
@@ -100,8 +105,9 @@ def test_rating_rejects_past_beyond_seven_days() -> None:
 
 def test_tide_penalties_apply_for_documented_tide_sensitive_spots() -> None:
     client = TestClient(app)
+    day = (datetime.now(tz=UTC) - timedelta(days=1)).date().isoformat()
     for spot_id in ["egypt-seahorse-bay", "morocco-dakhla", "zanzibar-jambiani"]:
-        response = client.get(f"/spots/{spot_id}/rating", params={"day": "2026-03-05"})
+        response = client.get(f"/spots/{spot_id}/rating", params={"day": day})
         assert response.status_code == 200
         points = response.json()["points"]
         assert any(p["explanation"]["components"].get("tide_penalty_stars", 0) > 0 for p in points)
