@@ -425,6 +425,150 @@
     let selectedModel = "gfs";
     let activeMobilePanel = "explore";
     const API_BASE_URL = (window.APP_CONFIG?.API_BASE_URL || "").replace(/\/$/, "");
+    const IMAGE_PLACEHOLDER =
+      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='800'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%23dbeafe'/%3E%3Cstop offset='100%25' stop-color='%23e2e8f0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='1200' height='800' fill='url(%23g)'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' fill='%23475569' font-family='Arial' font-size='34'%3ESpot photo pending%3C/text%3E%3C/svg%3E";
+    const SPOT_IMAGE_LIBRARY = {
+      "denmark-hvide-sande": {
+        imageUrl: "https://upload.wikimedia.org/wikipedia/commons/3/3d/Beach_near_%C3%85rgab_during_sunset.jpg",
+        author: "Michael Gäbler",
+        license: "CC BY 3.0",
+        sourceUrl: "https://commons.wikimedia.org/wiki/File:Beach_near_%C3%85rgab_during_sunset.jpg",
+      },
+      "germany-fehmarn": {
+        imageUrl: "https://upload.wikimedia.org/wikipedia/commons/8/81/Sunny_side_of_the_isle_%28Fehmarn%2C_Baltic_sea%29_%2835322566392%29.jpg",
+        author: "Freddy Fehmarn",
+        license: "CC BY 2.0",
+        sourceUrl: "https://commons.wikimedia.org/wiki/File:Sunny_side_of_the_isle_(Fehmarn,_Baltic_sea)_(35322566392).jpg",
+      },
+      "italy-sicily": {
+        imageUrl: "https://upload.wikimedia.org/wikipedia/commons/d/d6/Cliffs_and_beach_in_Sicily_-_P7180140_%289702012650%29.jpg",
+        author: "t_y_l",
+        license: "CC BY-SA 2.0",
+        sourceUrl: "https://commons.wikimedia.org/wiki/File:Cliffs_and_beach_in_Sicily_-_P7180140_(9702012650).jpg",
+      },
+      "morocco-essaouira": {
+        imageUrl: "https://upload.wikimedia.org/wikipedia/commons/7/7b/Beach_and_surfers%2C_Essaouira%2C_Morocco.jpg",
+        author: "Goldfinchshuffle",
+        license: "CC BY-SA 4.0",
+        sourceUrl: "https://commons.wikimedia.org/wiki/File:Beach_and_surfers,_Essaouira,_Morocco.jpg",
+      },
+      "morocco-dakhla": {
+        imageUrl: "https://upload.wikimedia.org/wikipedia/commons/6/6e/Kitesurf-Dakhla-Morocco_%281%29.JPG",
+        author: "Nomadz",
+        license: "CC BY-SA 3.0",
+        sourceUrl: "https://commons.wikimedia.org/wiki/File:Kitesurf-Dakhla-Morocco_(1).JPG",
+      },
+      "spain-tarifa": {
+        imageUrl: "https://upload.wikimedia.org/wikipedia/commons/d/d1/Kitesurfer_Tarifa_Beach.jpg",
+        author: "Kmtextor",
+        license: "CC BY-SA 4.0",
+        sourceUrl: "https://commons.wikimedia.org/wiki/File:Kitesurfer_Tarifa_Beach.jpg",
+      },
+      "spain-fuerteventura": {
+        imageUrl: "https://upload.wikimedia.org/wikipedia/commons/1/11/Morro_Jable_%28Fuerteventura%2C_Spain%29%2C_Strand_--_2025_--_2483.jpg",
+        author: "Dietmar Rabich",
+        license: "CC BY-SA 4.0",
+        sourceUrl: "https://commons.wikimedia.org/wiki/File:Morro_Jable_(Fuerteventura,_Spain),_Strand_--_2025_--_2483.jpg",
+      },
+      "sardinia-kite2sail": {
+        imageUrl: "https://upload.wikimedia.org/wikipedia/commons/1/1e/Punta_Molentis_Beach_in_Sardinia%2C_Italy_%2848398707271%29.jpg",
+        author: "dronepicr",
+        license: "CC BY 2.0",
+        sourceUrl: "https://commons.wikimedia.org/wiki/File:Punta_Molentis_Beach_in_Sardinia,_Italy_(48398707271).jpg",
+      },
+      "greece-kos": {
+        imageUrl: "https://upload.wikimedia.org/wikipedia/commons/5/51/Exotic_Beach_Kos%2C_Greece.jpg",
+        author: "DocWoKav",
+        license: "CC BY-SA 4.0",
+        sourceUrl: "https://commons.wikimedia.org/wiki/File:Exotic_Beach_Kos,_Greece.jpg",
+      },
+      "egypt-el-gouna": {
+        imageUrl: "https://upload.wikimedia.org/wikipedia/commons/7/78/El_Gouna_Downtown_Beach_R01.jpg",
+        author: "Marc Ryckaert",
+        license: "CC BY-SA 4.0",
+        sourceUrl: "https://commons.wikimedia.org/wiki/File:El_Gouna_Downtown_Beach_R01.jpg",
+      },
+      "egypt-seahorse-bay": {
+        localCandidates: [
+          "/app/spot-images/egypt-seahorse-bay-owned.jpg",
+          "/spot-images/egypt-seahorse-bay-owned.jpg",
+          "spot-images/egypt-seahorse-bay-owned.jpg",
+        ],
+        localAttribution: "Photo: user-provided image (used with permission).",
+        fallback: {
+          imageUrl: "https://upload.wikimedia.org/wikipedia/commons/2/27/Hotel_beach_with_a_small_marina_in_Hurghada.jpg",
+          author: "Dr. Ondřej Havelka (cestovatel)",
+          license: "CC BY 4.0",
+          sourceUrl: "https://commons.wikimedia.org/wiki/File:Hotel_beach_with_a_small_marina_in_Hurghada.jpg",
+        },
+      },
+      "tunisia-djerba": {
+        imageUrl: "https://upload.wikimedia.org/wikipedia/commons/d/dc/Beach_at_Djerba.jpg",
+        author: "Benoît Prieur",
+        license: "CC0",
+        sourceUrl: "https://commons.wikimedia.org/wiki/File:Beach_at_Djerba.jpg",
+      },
+      "cape-verde-sal": {
+        imageUrl: "https://upload.wikimedia.org/wikipedia/commons/4/47/Cape_Verde_Sal_kitesurfing.jpg",
+        author: "Cayambe",
+        license: "CC BY-SA 3.0",
+        sourceUrl: "https://commons.wikimedia.org/wiki/File:Cape_Verde_Sal_kitesurfing.jpg",
+      },
+      "brazil-tatajuba": {
+        imageUrl: "https://upload.wikimedia.org/wikipedia/commons/6/6f/Tatajuba_fishing_boat_-beach_%2815916318056%29.jpg",
+        author: "Winniepix",
+        license: "CC BY 2.0",
+        sourceUrl: "https://commons.wikimedia.org/wiki/File:Tatajuba_fishing_boat_-beach_(15916318056).jpg",
+      },
+      "brazil-prea": {
+        imageUrl: "https://upload.wikimedia.org/wikipedia/commons/9/90/Praia_do_Pre%C3%A1_%2853268515127%29.jpg",
+        author: "Otávio Nogueira from Fortaleza, BR",
+        license: "CC BY 2.0",
+        sourceUrl: "https://commons.wikimedia.org/wiki/File:Praia_do_Pre%C3%A1_(53268515127).jpg",
+      },
+      "brazil-jericoacoara": {
+        imageUrl: "https://upload.wikimedia.org/wikipedia/commons/2/2a/Cavalos_nas_dunas_de_Jericoacora.jpg",
+        author: "Thiago Gomes Gonçalves",
+        license: "CC BY-SA 4.0",
+        sourceUrl: "https://commons.wikimedia.org/wiki/File:Cavalos_nas_dunas_de_Jericoacora.jpg",
+      },
+      "brazil-kite-safari": {
+        imageUrl: "https://upload.wikimedia.org/wikipedia/commons/6/6f/Fortaleza%2C_Cear%C3%A1%2C_Brazil%2C_Kitesurf_in_Cumbuco_Beach_-_panoramio.jpg",
+        author: "Boris Karpuk",
+        license: "CC BY-SA 3.0",
+        sourceUrl: "https://commons.wikimedia.org/wiki/File:Fortaleza,_Cear%C3%A1,_Brazil,_Kitesurf_in_Cumbuco_Beach_-_panoramio.jpg",
+      },
+      "panama-punta-chame": {
+        imageUrl: "https://upload.wikimedia.org/wikipedia/commons/3/39/Panorama_de_punta_chame.jpg",
+        author: "John23Ms",
+        license: "CC BY 4.0",
+        sourceUrl: "https://commons.wikimedia.org/wiki/File:Panorama_de_punta_chame.jpg",
+      },
+      "zanzibar-jambiani": {
+        imageUrl: "https://upload.wikimedia.org/wikipedia/commons/3/3f/Fisherman_maintaining_his_dhow.jpg",
+        author: "RichieRR",
+        license: "CC BY-SA 4.0",
+        sourceUrl: "https://commons.wikimedia.org/wiki/File:Fisherman_maintaining_his_dhow.jpg",
+      },
+      "kenya-mwazaro-beach": {
+        imageUrl: "https://upload.wikimedia.org/wikipedia/commons/c/c7/Diani_Beach_Sunrise_Kenya.jpg",
+        author: "Łukasz Ciesielski",
+        license: "CC BY-SA 3.0",
+        sourceUrl: "https://commons.wikimedia.org/wiki/File:Diani_Beach_Sunrise_Kenya.jpg",
+      },
+      "south-africa-cape-town": {
+        imageUrl: "https://upload.wikimedia.org/wikipedia/commons/2/27/Glen_Beach_-_panoramio.jpg",
+        author: "Wacqy",
+        license: "CC BY-SA 3.0",
+        sourceUrl: "https://commons.wikimedia.org/wiki/File:Glen_Beach_-_panoramio.jpg",
+      },
+      "sri-lanka-kalpitiya": {
+        imageUrl: "https://upload.wikimedia.org/wikipedia/commons/0/09/Kalpitiya_Beach_Sunset.jpg",
+        author: "Thilini liyanage",
+        license: "CC BY-SA 4.0",
+        sourceUrl: "https://commons.wikimedia.org/wiki/File:Kalpitiya_Beach_Sunset.jpg",
+      },
+    };
 
     function apiUrl(path) {
       return API_BASE_URL ? `${API_BASE_URL}${path}` : path;
@@ -507,22 +651,55 @@
     }
 
     function setSpotImage(spot) {
-      const stamp = "20260307";
-      const candidates = [
-        `/app/spot-images/${spot.id}.jpg?v=${stamp}`,
-        `/spot-images/${spot.id}.jpg?v=${stamp}`,
-        `spot-images/${spot.id}.jpg?v=${stamp}`,
-        `/app/spot-images/board.jpg?v=${stamp}`,
-      ];
-      let idx = 0;
+      const configured = SPOT_IMAGE_LIBRARY[spot.id];
+
+      function setFallbackMeta() {
+        spotImageMetaEl.innerHTML = `${spot.country} | ${spot.name}<br/>Image source pending verification.`;
+      }
+
+      function setCcMeta(entry) {
+        spotImageMetaEl.innerHTML =
+          `${spot.country} | ${spot.name}<br/>` +
+          `Photo: ${entry.author} · ${entry.license} · ` +
+          `<a href="${entry.sourceUrl}" target="_blank" rel="noopener noreferrer">Source</a>`;
+      }
+
+      if (!configured) {
+        spotImageEl.onerror = null;
+        spotImageEl.src = IMAGE_PLACEHOLDER;
+        setFallbackMeta();
+        return;
+      }
+
+      if (configured.localCandidates?.length) {
+        const candidates = [...configured.localCandidates];
+        if (configured.fallback?.imageUrl) candidates.push(configured.fallback.imageUrl);
+        let idx = 0;
+        spotImageEl.onerror = () => {
+          idx += 1;
+          if (idx < candidates.length) {
+            spotImageEl.src = candidates[idx];
+            if (idx >= configured.localCandidates.length && configured.fallback) {
+              setCcMeta(configured.fallback);
+            }
+          } else {
+            spotImageEl.onerror = null;
+            spotImageEl.src = IMAGE_PLACEHOLDER;
+            setFallbackMeta();
+          }
+        };
+        spotImageEl.src = candidates[0];
+        spotImageMetaEl.innerHTML = `${spot.country} | ${spot.name}<br/>${configured.localAttribution}`;
+        return;
+      }
+
       spotImageEl.onerror = () => {
-        idx += 1;
-        if (idx < candidates.length) {
-          spotImageEl.src = candidates[idx];
-        }
+        spotImageEl.onerror = null;
+        spotImageEl.src = IMAGE_PLACEHOLDER;
+        setFallbackMeta();
       };
-      spotImageEl.src = candidates[idx];
-      spotImageMetaEl.textContent = `${spot.country} | ${spot.name}`;
+      spotImageEl.src = configured.imageUrl;
+      setCcMeta(configured);
     }
 
     function initMap() {
