@@ -711,16 +711,26 @@
         ...genericOwnedCandidates,
         ...(configured.localCandidates || []),
       ].filter((value, index, arr) => arr.indexOf(value) === index);
-      if (localCandidates.length) {
-        const candidates = [...localCandidates];
-        if (configured.fallback?.imageUrl) candidates.push(configured.fallback.imageUrl);
+      const ccCandidates = [];
+      if (configured.imageUrl) {
+        ccCandidates.push({ url: configured.imageUrl, meta: configured });
+      }
+      if (configured.fallback?.imageUrl) {
+        ccCandidates.push({ url: configured.fallback.imageUrl, meta: configured.fallback });
+      }
+      if (localCandidates.length || ccCandidates.length) {
+        const candidates = [
+          ...localCandidates.map((url) => ({ url, type: "local" })),
+          ...ccCandidates.map((entry) => ({ url: entry.url, type: "cc", meta: entry.meta })),
+        ];
         let idx = 0;
         spotImageEl.onerror = () => {
           idx += 1;
           if (idx < candidates.length) {
-            spotImageEl.src = candidates[idx];
-            if (idx >= localCandidates.length && configured.fallback) {
-              setCcMeta(configured.fallback);
+            const next = candidates[idx];
+            spotImageEl.src = next.url;
+            if (next.type === "cc" && next.meta) {
+              setCcMeta(next.meta);
             }
           } else {
             spotImageEl.onerror = null;
@@ -728,10 +738,15 @@
             setFallbackMeta();
           }
         };
-        spotImageEl.src = candidates[0];
-        spotImageMetaEl.innerHTML =
-          `${spot.country} | ${spot.name}<br/>` +
-          `${configured.localAttribution || "Photo: user-provided image (used with permission)."}`;
+        const first = candidates[0];
+        spotImageEl.src = first.url;
+        if (first.type === "cc" && first.meta) {
+          setCcMeta(first.meta);
+        } else {
+          spotImageMetaEl.innerHTML =
+            `${spot.country} | ${spot.name}<br/>` +
+            `${configured.localAttribution || "Photo: user-provided image (used with permission)."}`;
+        }
         return;
       }
 
