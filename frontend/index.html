@@ -641,6 +641,7 @@
       const exploreCard = document.querySelector(".card-explore");
       const chartCard = document.querySelector(".card-chart");
       if (!exploreCard || !chartCard) return;
+      exploreCard.style.minHeight = "";
       chartCard.style.minHeight = "";
       if (isMobileLayout()) return;
       const exploreBottom = exploreCard.getBoundingClientRect().bottom;
@@ -648,6 +649,8 @@
       const diff = Math.round(exploreBottom - chartBottom);
       if (diff > 0) {
         chartCard.style.minHeight = `${chartCard.offsetHeight + diff}px`;
+      } else if (diff < 0) {
+        exploreCard.style.minHeight = `${exploreCard.offsetHeight + Math.abs(diff)}px`;
       }
     }
 
@@ -672,6 +675,9 @@
         `/spot-images/${spot.id}-owned.jpg`,
         `spot-images/${spot.id}-owned.jpg`,
       ];
+      spotImageEl.onload = () => {
+        setTimeout(syncDesktopBottomAlignment, 0);
+      };
 
       function setFallbackMeta() {
         spotImageMetaEl.innerHTML = `${spot.country} | ${spot.name}<br/>Image source pending verification.`;
