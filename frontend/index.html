@@ -634,6 +634,21 @@
       if (map) {
         setTimeout(() => map.invalidateSize(), 120);
       }
+      setTimeout(syncDesktopBottomAlignment, 120);
+    }
+
+    function syncDesktopBottomAlignment() {
+      const exploreCard = document.querySelector(".card-explore");
+      const chartCard = document.querySelector(".card-chart");
+      if (!exploreCard || !chartCard) return;
+      chartCard.style.minHeight = "";
+      if (isMobileLayout()) return;
+      const exploreBottom = exploreCard.getBoundingClientRect().bottom;
+      const chartBottom = chartCard.getBoundingClientRect().bottom;
+      const diff = Math.round(exploreBottom - chartBottom);
+      if (diff > 0) {
+        chartCard.style.minHeight = `${chartCard.offsetHeight + diff}px`;
+      }
     }
 
     function updateSummary(points) {
@@ -1045,6 +1060,7 @@
       }
       const data = await res.json();
       drawTimeline(data.points);
+      setTimeout(syncDesktopBottomAlignment, 0);
     }
 
     spotPlot.addEventListener("mousemove", updatePlotTooltip);
@@ -1073,7 +1089,10 @@
     dayInput.value = today;
     initMap();
     applyMobilePanelState();
-    loadSpots().then(loadDay);
+    loadSpots().then(async () => {
+      await loadDay();
+      setTimeout(syncDesktopBottomAlignment, 0);
+    });
   </script>
 </body>
 </html>
