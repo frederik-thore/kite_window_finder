@@ -350,7 +350,6 @@
         <div class="controls">
           <select id="spotSelect"></select>
           <input id="dayInput" type="date" />
-          <button id="loadBtn">Load</button>
         </div>
         <div class="stats" id="skillStats"></div>
         <div class="spot-photo">
@@ -583,11 +582,12 @@
           dayInput.value = currentSpotDateValue();
         }
       }
-      spotSelect.onchange = () => {
+      spotSelect.onchange = async () => {
         const spot = spots.find((entry) => entry.id === spotSelect.value);
         if (spot) {
           focusSpot(spot);
           dayInput.value = currentSpotDateValue();
+          await loadDay();
         }
       };
     }
@@ -610,8 +610,14 @@
       }
       const active = document.createElement("span");
       active.className = "pill";
-      active.textContent = `Active model: ${data.active_model.toUpperCase()}`;
+      active.textContent = `Active model: ${selectedModel.toUpperCase()}`;
       skillStats.appendChild(active);
+      if (data.active_model !== selectedModel) {
+        const best = document.createElement("span");
+        best.className = "pill";
+        best.textContent = `Best skill: ${data.active_model.toUpperCase()}`;
+        skillStats.appendChild(best);
+      }
       data.entries.forEach((entry) => {
         const pill = document.createElement("button");
         pill.className = `pill pill-clickable ${selectedModel === entry.model ? "pill-active" : ""}`;
@@ -855,7 +861,9 @@
       showDetail(idx, { scroll: true });
     });
 
-    document.getElementById("loadBtn").onclick = loadDay;
+    dayInput.onchange = async () => {
+      await loadDay();
+    };
     mobileTabsEl.querySelectorAll(".mobile-tab").forEach((tab) => {
       tab.onclick = () => {
         activeMobilePanel = tab.dataset.panel;
