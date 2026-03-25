@@ -10,5 +10,9 @@ services:
         value: "true"
       - key: ALLOW_SYNTHETIC_FALLBACK
         value: "false"
+      - key: FORECAST_PROVIDER_CACHE_TTL_SECONDS
+        value: "86400"
+      - key: OBSERVATION_PROVIDER_CACHE_TTL_SECONDS
+        value: "1800"
       - key: CORS_ALLOW_ORIGINS
         sync: false

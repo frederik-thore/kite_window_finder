@@ -53,14 +53,20 @@ Primary sources:
 - Observations: Meteostat (if API key provided), otherwise Open-Meteo archive
 
 Update behavior:
-- Provider cache TTL defaults to 15 minutes (`PROVIDER_CACHE_TTL_SECONDS=900`)
-- Data is requested fresh after cache expiry (hourly-scale updates)
+- Forecast cache can be configured separately (`FORECAST_PROVIDER_CACHE_TTL_SECONDS`)
+- Observation cache can be configured separately (`OBSERVATION_PROVIDER_CACHE_TTL_SECONDS`)
+- Default fallback TTL remains 15 minutes (`PROVIDER_CACHE_TTL_SECONDS=900`)
+- For low API call volume in production, use:
+  - `FORECAST_PROVIDER_CACHE_TTL_SECONDS=86400` (24h)
+  - `OBSERVATION_PROVIDER_CACHE_TTL_SECONDS=1800` (30 min)
 
 Environment:
 
 ```bash
 export LIVE_WEATHER_ENABLED=true
 export ALLOW_SYNTHETIC_FALLBACK=false
+export FORECAST_PROVIDER_CACHE_TTL_SECONDS=86400
+export OBSERVATION_PROVIDER_CACHE_TTL_SECONDS=1800
 ```
 
 Optional Meteostat observations (if you have a RapidAPI key):
@@ -106,23 +112,40 @@ You can also allow multiple origins comma-separated.
 
 Empfohlener schneller Setup:
 
-1. Backend auf Render deployen
-2. die Render-URL in [frontend/config.js](/Users/frederikberger/repositories/codex_multi_agent/frontend/config.js) eintragen
+1. Backend auf Hostinger VPS deployen
+2. die VPS-API-URL in [frontend/config.js](/Users/frederikberger/repositories/codex_multi_agent/frontend/config.js) eintragen
 3. Frontend ueber GitHub Pages deployen
 4. `CORS_ALLOW_ORIGINS` im Backend auf die finale GitHub-Pages-URL setzen
 
-### 1. Backend auf Render
+### 1. Backend auf Hostinger VPS
 
-Datei dafuer liegt schon bereit:
-- [render.yaml](/Users/frederikberger/repositories/codex_multi_agent/render.yaml)
+Deployment-Dateien:
+- [setup_hostinger_vps.sh](/Users/frederikberger/repositories/codex_multi_agent/deploy/setup_hostinger_vps.sh)
+- [kite-window-finder-api.service](/Users/frederikberger/repositories/codex_multi_agent/deploy/systemd/kite-window-finder-api.service)
+- [kite-window-finder-api.conf](/Users/frederikberger/repositories/codex_multi_agent/deploy/nginx/kite-window-finder-api.conf)
+- [env.example](/Users/frederikberger/repositories/codex_multi_agent/deploy/env.example)
 
-Render-Konfiguration:
-- Build Command: `pip install .`
-- Start Command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-- notwendige Env Vars:
-  - `LIVE_WEATHER_ENABLED=true`
-  - `ALLOW_SYNTHETIC_FALLBACK=false`
-  - `CORS_ALLOW_ORIGINS=https://<dein-user>.github.io`
+Auf dem VPS (Ubuntu/Debian) als `root`:
+
+```bash
+apt-get update && apt-get install -y git
+git clone https://github.com/<dein-user>/kite_window_finder.git
+cd kite_window_finder
+DOMAIN=api.deine-domain.tld REPO_URL=https://github.com/<dein-user>/kite_window_finder.git bash deploy/setup_hostinger_vps.sh
+```
+
+Danach `.env` pruefen/setzen:
+
+```bash
+nano /opt/kite_window_finder/.env
+```
+
+TLS aktivieren:
+
+```bash
+apt-get install -y certbot python3-certbot-nginx
+certbot --nginx -d api.deine-domain.tld
+```
 
 Optional:
 - `METEOSTAT_API_KEY=...`
@@ -134,7 +157,7 @@ In [frontend/config.js](/Users/frederikberger/repositories/codex_multi_agent/fro
 
 ```js
 window.APP_CONFIG = {
-  API_BASE_URL: "https://dein-render-service.onrender.com",
+  API_BASE_URL: "https://api.deine-domain.tld",
 };
 ```
 
@@ -158,7 +181,7 @@ Nach dem Deploy:
 ## Empfohlene Push-Reihenfolge
 
 1. Repo nach GitHub pushen
-2. Render-Service anlegen
-3. Render-URL in `frontend/config.js` eintragen
+2. VPS-Setup ausfuehren
+3. API-URL in `frontend/config.js` eintragen
 4. nochmal nach GitHub pushen
 5. GitHub Pages oeffnen

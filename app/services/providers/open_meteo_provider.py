@@ -4,7 +4,12 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
-from app.core.settings import PROVIDER_CACHE_TTL_SECONDS, PROVIDER_HTTP_TIMEOUT_SECONDS
+from app.core.settings import (
+    FORECAST_PROVIDER_CACHE_TTL_SECONDS,
+    OBSERVATION_PROVIDER_CACHE_TTL_SECONDS,
+    PROVIDER_CACHE_TTL_SECONDS,
+    PROVIDER_HTTP_TIMEOUT_SECONDS,
+)
 from app.models.spot import Spot
 from app.models.weather import ForecastModelName, ForecastPoint, ObservationPoint
 from app.services.providers.base import ForecastProvider, ObservationProvider
@@ -21,6 +26,10 @@ _FORECAST_BASE_BY_MODEL: dict[ForecastModelName, str] = {
 
 def _iso(ts: datetime) -> str:
     return ts.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _date_window_key(dt_from: datetime, dt_to: datetime) -> str:
+    return f"{dt_from.date().isoformat()}:{dt_to.date().isoformat()}"
 
 
 def _parse_time(values: list[str], timezone_name: str) -> list[datetime]:
@@ -40,7 +49,8 @@ def _filter_between(ts: datetime, dt_from: datetime, dt_to: datetime) -> bool:
 
 class OpenMeteoForecastProvider(ForecastProvider):
     def __init__(self) -> None:
-        self._cache: TTLCache[list[ForecastPoint]] = TTLCache(PROVIDER_CACHE_TTL_SECONDS)
+        ttl_seconds = FORECAST_PROVIDER_CACHE_TTL_SECONDS or PROVIDER_CACHE_TTL_SECONDS
+        self._cache: TTLCache[list[ForecastPoint]] = TTLCache(ttl_seconds)
 
     def hourly_forecast(
         self,
@@ -51,7 +61,7 @@ class OpenMeteoForecastProvider(ForecastProvider):
     ) -> list[ForecastPoint]:
         dt_from = dt_from.astimezone(UTC)
         dt_to = dt_to.astimezone(UTC)
-        cache_key = f"forecast:{spot.id}:{model}:{_iso(dt_from)}:{_iso(dt_to)}"
+        cache_key = f"forecast:{spot.id}:{model}:{_date_window_key(dt_from, dt_to)}"
         cached = self._cache.get(cache_key)
         if cached is not None:
             return cached
@@ -167,7 +177,8 @@ class OpenMeteoForecastProvider(ForecastProvider):
 
 class OpenMeteoArchiveObservationProvider(ObservationProvider):
     def __init__(self) -> None:
-        self._cache: TTLCache[list[ObservationPoint]] = TTLCache(PROVIDER_CACHE_TTL_SECONDS)
+        ttl_seconds = OBSERVATION_PROVIDER_CACHE_TTL_SECONDS or PROVIDER_CACHE_TTL_SECONDS
+        self._cache: TTLCache[list[ObservationPoint]] = TTLCache(ttl_seconds)
 
     def hourly_observations(
         self,
@@ -177,7 +188,7 @@ class OpenMeteoArchiveObservationProvider(ObservationProvider):
     ) -> list[ObservationPoint]:
         dt_from = dt_from.astimezone(UTC)
         dt_to = dt_to.astimezone(UTC)
-        cache_key = f"obs_archive:{spot.id}:{_iso(dt_from)}:{_iso(dt_to)}"
+        cache_key = f"obs_archive:{spot.id}:{_date_window_key(dt_from, dt_to)}"
         cached = self._cache.get(cache_key)
         if cached is not None:
             return cached
@@ -214,7 +225,8 @@ class MeteostatObservationProvider(ObservationProvider):
     def __init__(self, api_key: str, api_host: str) -> None:
         self._api_key = api_key
         self._api_host = api_host
-        self._cache: TTLCache[list[ObservationPoint]] = TTLCache(PROVIDER_CACHE_TTL_SECONDS)
+        ttl_seconds = OBSERVATION_PROVIDER_CACHE_TTL_SECONDS or PROVIDER_CACHE_TTL_SECONDS
+        self._cache: TTLCache[list[ObservationPoint]] = TTLCache(ttl_seconds)
 
     def hourly_observations(
         self,
@@ -224,7 +236,7 @@ class MeteostatObservationProvider(ObservationProvider):
     ) -> list[ObservationPoint]:
         dt_from = dt_from.astimezone(UTC)
         dt_to = dt_to.astimezone(UTC)
-        cache_key = f"obs_meteostat:{spot.id}:{_iso(dt_from)}:{_iso(dt_to)}"
+        cache_key = f"obs_meteostat:{spot.id}:{_date_window_key(dt_from, dt_to)}"
         cached = self._cache.get(cache_key)
         if cached is not None:
             return cached
