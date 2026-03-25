@@ -667,6 +667,11 @@
 
     function setSpotImage(spot) {
       const configured = SPOT_IMAGE_LIBRARY[spot.id];
+      const genericOwnedCandidates = [
+        `/app/spot-images/${spot.id}-owned.jpg`,
+        `/spot-images/${spot.id}-owned.jpg`,
+        `spot-images/${spot.id}-owned.jpg`,
+      ];
 
       function setFallbackMeta() {
         spotImageMetaEl.innerHTML = `${spot.country} | ${spot.name}<br/>Image source pending verification.`;
@@ -680,21 +685,35 @@
       }
 
       if (!configured) {
-        spotImageEl.onerror = null;
-        spotImageEl.src = IMAGE_PLACEHOLDER;
-        setFallbackMeta();
+        let idx = 0;
+        spotImageEl.onerror = () => {
+          idx += 1;
+          if (idx < genericOwnedCandidates.length) {
+            spotImageEl.src = genericOwnedCandidates[idx];
+          } else {
+            spotImageEl.onerror = null;
+            spotImageEl.src = IMAGE_PLACEHOLDER;
+            setFallbackMeta();
+          }
+        };
+        spotImageEl.src = genericOwnedCandidates[0];
+        spotImageMetaEl.innerHTML = `${spot.country} | ${spot.name}<br/>Photo: user-provided image (used with permission).`;
         return;
       }
 
-      if (configured.localCandidates?.length) {
-        const candidates = [...configured.localCandidates];
+      const localCandidates = [
+        ...genericOwnedCandidates,
+        ...(configured.localCandidates || []),
+      ].filter((value, index, arr) => arr.indexOf(value) === index);
+      if (localCandidates.length) {
+        const candidates = [...localCandidates];
         if (configured.fallback?.imageUrl) candidates.push(configured.fallback.imageUrl);
         let idx = 0;
         spotImageEl.onerror = () => {
           idx += 1;
           if (idx < candidates.length) {
             spotImageEl.src = candidates[idx];
-            if (idx >= configured.localCandidates.length && configured.fallback) {
+            if (idx >= localCandidates.length && configured.fallback) {
               setCcMeta(configured.fallback);
             }
           } else {
@@ -704,7 +723,9 @@
           }
         };
         spotImageEl.src = candidates[0];
-        spotImageMetaEl.innerHTML = `${spot.country} | ${spot.name}<br/>${configured.localAttribution}`;
+        spotImageMetaEl.innerHTML =
+          `${spot.country} | ${spot.name}<br/>` +
+          `${configured.localAttribution || "Photo: user-provided image (used with permission)."}`;
         return;
       }
 
