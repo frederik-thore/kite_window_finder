@@ -55,6 +55,12 @@ def _wind_star_cap(wind_kn: float) -> float:
     return 5.0
 
 
+def _cold_temperature_star_cap(air_c: float, water_c: float) -> float:
+    if air_c < 10 or water_c < 10:
+        return 3.0
+    return 5.0
+
+
 def _direction_score(direction_deg: int, spot: Spot) -> float:
     if _in_sector(direction_deg, spot.offshore_sector_deg):
         return 0.0
@@ -192,6 +198,7 @@ def build_rating_point(
         stars_before_penalty = min(
             _round_half(5 * weighted),
             _wind_star_cap(forecast.wind_speed_kn),
+            _cold_temperature_star_cap(forecast.air_temp_c, forecast.water_temp_c),
         )
         stars = max(0.0, stars_before_penalty - low_tide_penalty_stars)
         explanation = RatingExplanation(
