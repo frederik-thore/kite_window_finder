@@ -36,13 +36,23 @@ def _wind_score(wind_kn: float) -> float:
         return 0.0
     if wind_kn < 12:
         return 0.60
-    if wind_kn < 16:
+    if wind_kn < 15:
         return 0.85
     if wind_kn <= 24:
         return 1.00
     if wind_kn <= 30:
         return 0.70
     return 0.40
+
+
+def _wind_star_cap(wind_kn: float) -> float:
+    if wind_kn < 10:
+        return 0.0
+    if wind_kn < 13:
+        return 4.0
+    if wind_kn < 15:
+        return 4.5
+    return 5.0
 
 
 def _direction_score(direction_deg: int, spot: Spot) -> float:
@@ -179,7 +189,11 @@ def build_rating_point(
         )
         s_spot = _spot_score(spot)
         weighted = 0.30 * s_wind + 0.25 * s_dir + 0.20 * s_tide + 0.20 * s_thermal + 0.05 * s_spot
-        stars = max(0.0, _round_half(5 * weighted) - low_tide_penalty_stars)
+        stars_before_penalty = min(
+            _round_half(5 * weighted),
+            _wind_star_cap(forecast.wind_speed_kn),
+        )
+        stars = max(0.0, stars_before_penalty - low_tide_penalty_stars)
         explanation = RatingExplanation(
             hard_gates_triggered=[],
             components={
